@@ -120,39 +120,30 @@ if [[ -n "${1:-}" ]]; then
     echo "  Size:         $SIZE"
     echo "  Status:       $LIGHT"
 else
-    # ── List all conversations, sorted by size (largest first) ─
-    printf "  %-8s  %-38s  %s\n" "SIZE" "CONVERSATION ID" "STATUS"
-    echo "  ────────  ──────────────────────────────────────  ─────────────────────────────────────"
+    # ── Show the most recent conversation (by modification time) ─
+    NEWEST=$(ls -t "$CONV_DIR"/*.pb 2>/dev/null | head -1)
 
-    # Count for summary
-    total=0
-    green=0
-    yellow=0
-    red=0
-
-    for f in $(ls -S "$CONV_DIR"/*.pb 2>/dev/null); do
-        ID=$(basename "$f" .pb)
-        BYTES=$(get_file_size "$f")
-        SIZE=$(format_size "$BYTES")
-        LIGHT=$(traffic_light "$BYTES")
-        printf "  %-8s  %-38s  %s\n" "$SIZE" "$ID" "$LIGHT"
-
-        total=$((total + 1))
-        mb=$((BYTES / 1048576))
-        if (( mb >= 14 )); then
-            red=$((red + 1))
-        elif (( mb >= 10 )); then
-            yellow=$((yellow + 1))
-        else
-            green=$((green + 1))
-        fi
-    done
-
-    if (( total == 0 )); then
+    if [[ -z "$NEWEST" ]]; then
         echo "  (no conversations found)"
     else
-        echo ""
-        echo "  Summary: $total conversations — 🟢 $green  🟡 $yellow  🔴 $red"
+        ID=$(basename "$NEWEST" .pb)
+        BYTES=$(get_file_size "$NEWEST")
+        SIZE=$(format_size "$BYTES")
+        LIGHT=$(traffic_light "$BYTES")
+
+        # Cross-platform last-modified date
+        if stat -f%Sm -t '%Y-%m-%d %H:%M:%S' "$NEWEST" &>/dev/null; then
+            MODIFIED=$(stat -f%Sm -t '%Y-%m-%d %H:%M:%S' "$NEWEST")  # macOS BSD
+        else
+            MODIFIED=$(stat -c%y "$NEWEST" 2>/dev/null | cut -d. -f1)  # Linux GNU
+        fi
+
+        echo "  ACTIVE CONVERSATION"
+        echo "  ─────────────────────────────────────────────────"
+        echo "  ID:        $ID"
+        echo "  Size:      $SIZE"
+        echo "  Modified:  $MODIFIED"
+        echo "  Status:    $LIGHT"
     fi
 fi
 
